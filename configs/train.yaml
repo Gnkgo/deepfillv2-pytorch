@@ -3,9 +3,9 @@ model_restore: '' # Start new training
 #model_restore: 'checkpoints/celebahq/model_exp0/states.pth'
 
 # dataloading
-dataset_path: 'C:/data/CelebA-HQ-train'
+dataset_path: 'training_data'
 scan_subdirs: True  # Are the images organized in subfolders?
-random_crop: False  # Set to false when dataset is 'celebahq', meaning only resize the images to img_shapes, instead of crop img_shapes from a larger raw image. This is useful when you train on images with different resolutions like places2. In these cases, please set random_crop to true.
+random_crop: True  # Set to false when dataset is 'celebahq', meaning only resize the images to img_shapes, instead of crop img_shapes from a larger raw image. This is useful when you train on images with different resolutions like places2. In these cases, please set random_crop to true.
 random_horizontal_flip: False
 batch_size: 16
 num_workers: 0

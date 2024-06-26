@@ -64,6 +64,8 @@ def training_loop(generator,        # generator network
         regular_mask = misc.bbox2mask(config, bbox).to(device)
         irregular_mask = misc.brush_stroke_mask(config).to(device)
         mask = torch.logical_or(irregular_mask, regular_mask).to(torch.float32)
+        
+        
 
         # prepare input for generator
         batch_incomplete = batch_real*(1.-mask)

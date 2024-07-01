@@ -26,7 +26,7 @@ d_lr: 0.0001    # lr for Adam optimizer (discriminator)
 d_beta1: 0.5    # beta1 for Adam optimizer (discriminator)
 d_beta2: 0.999  # beta2 for Adam optimizer (discriminator)
 
-max_iters: 1000000 # number of batches to train the models
+max_iters: 150000 # number of batches to train the models
 
 # logging
 viz_max_out: 10             # number of images from batch 
@@ -37,13 +37,13 @@ save_imgs_to_tb_iter: 500   # (optional) add image grids to tensorboard
 save_imgs_to_disc_iter: 500 # (optional) save image grids in checkpoint folder
 save_cp_backup_iter: 5000   # (optional) save checkpoint file named states_{n_iter}.pth
 
-img_shapes: [256, 256, 3]
+img_shapes: [512, 512, 3]
 
 # mask options
-height: 128
-width: 128
-max_delta_height: 32
-max_delta_width: 32
+height: 512
+width: 512
+max_delta_height: 0
+max_delta_width: 0
 vertical_margin: 0
 horizontal_margin: 0
 

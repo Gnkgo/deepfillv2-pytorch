@@ -6,13 +6,14 @@ import torchvision as tv
 import torchvision.transforms as T
 import matplotlib.pyplot as plt
 import json
+import PIL.Image as Image
 
 import model.losses as gan_losses
 import utils.misc as misc
 #from model.networks_tf import Generator, Discriminator
 from model.networks import Generator, Discriminator
 from utils.data import ImageDataset
-
+import numpy as np
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--config', type=str,
@@ -23,6 +24,7 @@ def show_image_and_mask(image, mask, index=0):
     image_np = image[index].cpu().numpy().transpose((1, 2, 0))
     mask_np = mask[index].cpu().numpy().transpose((1, 2, 0))
 
+    print("PRINTING IMAGE")
     fig, ax = plt.subplots(1, 2, figsize=(12, 6))
 
     ax[0].imshow(image_np)
@@ -44,7 +46,7 @@ def training_loop(generator,        # generator network
                   train_dataloader, # training dataloader
                   last_n_iter,      # last iteration
                   writer,           # tensorboard writer
-                  config,           # Config object
+                  config            # Config object
                   ):
 
     device = torch.device('cuda' if torch.cuda.is_available()
@@ -77,29 +79,42 @@ def training_loop(generator,        # generator network
 
         batch_real = batch_real.to(device, non_blocking=True)
         
-        # create mask
-        with open('rectangles.json') as f:
-            rectangles = json.load(f)
+        # # create mask
+        # with open('rectangles.json') as f:
+        #     rectangles = json.load(f)
             
         
-        
+        #print("CHECKPOINT")
 
         # initialize a batch of masks
         batch_size = len(batch_filenames)
         img_height, img_width, _ = config.img_shapes
         mask = torch.zeros((batch_size, 1, img_height, img_width),
                             device=device, dtype=torch.float32)
-
+        
         for i, filename in enumerate(batch_filenames):
             img_name = os.path.basename(filename).split('.')[0]
-            if img_name in rectangles:
-                for rect in rectangles[img_name]:
-                    x1, x2, y1, y2 = rect
-                    mask[i, 0, y1:y2, x1:x2] = 1
-                    
+            # Load mask from the mask directory
+            try :
+                mask_path = os.path.join(config.mask_dir, f"{img_name}.png")
+                mask_image = Image.open(mask_path).convert('L')  # Convert to grayscale
+                mask_np_array = np.array(mask_image)
+                mask_np_array = np.array(plt.imread(mask_path))
+                
+            except:
+                print(f"Mask not found for image: {img_name}")
+                mask_np_array = np.zeros((img_height, img_width))
+            
+            # Ensure the mask is a binary mask of 0s and 1s
+            mask_np_array = (mask_np_array > 0).astype(np.float32)
+            
+            # Insert the mask into the batch tensor
+            mask[i, 0] = torch.tensor(mask_np_array, device=device, dtype=torch.float32)
+            
         #show_image_and_mask(batch_real, mask)
         
-        #break
+        # print("BREAKING")
+        # break
 
         # prepare input for generator
         batch_incomplete = batch_real * (1. - mask)

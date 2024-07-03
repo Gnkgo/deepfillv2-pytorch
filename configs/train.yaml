@@ -1,6 +1,6 @@
 # resume training
-model_restore: '' # Start new training
-#model_restore: 'checkpoints/celebahq/model_exp0/states.pth'
+#model_restore: '' # Start new training
+model_restore: 'checkpoints/celebahq/model_exp0/states.pth'
 
 # dataloading
 dataset_path: 'training_data_small'

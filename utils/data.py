@@ -57,7 +57,6 @@ class ImageDataset(Dataset):
         return len(self.data)
 
     def __getitem__(self, index):
-        img_path = self.data[index]
         img = pil_loader(self.data[index], self.mode)
 
         if self.random_crop:
@@ -71,4 +70,4 @@ class ImageDataset(Dataset):
         img = self.transforms(img)
         img.mul_(2).sub_(1) # [0, 1] -> [-1, 1]
 
-        return img, img_path
+        return img

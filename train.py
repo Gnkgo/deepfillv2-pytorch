@@ -4,38 +4,18 @@ import argparse
 import torch
 import torchvision as tv
 import torchvision.transforms as T
-import matplotlib.pyplot as plt
-import json
-import PIL.Image as Image
 
 import model.losses as gan_losses
 import utils.misc as misc
 #from model.networks_tf import Generator, Discriminator
 from model.networks import Generator, Discriminator
 from utils.data import ImageDataset
-import numpy as np
+
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--config', type=str,
                     default="configs/train.yaml", help="Path to yaml config file")
 
-
-def show_image_and_mask(image, mask, index=0):
-    image_np = image[index].cpu().numpy().transpose((1, 2, 0))
-    mask_np = mask[index].cpu().numpy().transpose((1, 2, 0))
-
-    print("PRINTING IMAGE")
-    fig, ax = plt.subplots(1, 2, figsize=(12, 6))
-
-    ax[0].imshow(image_np)
-    ax[0].set_title("Image")
-    ax[0].axis("off")
-
-    ax[1].imshow(mask_np, cmap="gray")
-    ax[1].set_title("Mask")
-    ax[1].axis("off")
-
-    plt.show()
 
 def training_loop(generator,        # generator network
                   discriminator,    # discriminator network
@@ -72,65 +52,36 @@ def training_loop(generator,        # generator network
     for n_iter in range(init_n_iter, config.max_iters):
         # load batch of raw data
         try:
-            batch_real, batch_filenames = next(train_iter)
+            batch_real = next(train_iter)
         except:
             train_iter = iter(train_dataloader)
-            batch_real, batch_filenames = next(train_iter)
+            batch_real = next(train_iter)
 
         batch_real = batch_real.to(device, non_blocking=True)
-        
-        # # create mask
-        # with open('rectangles.json') as f:
-        #     rectangles = json.load(f)
-            
-        
-        #print("CHECKPOINT")
 
-        # initialize a batch of masks
-        batch_size = len(batch_filenames)
-        img_height, img_width, _ = config.img_shapes
-        mask = torch.zeros((batch_size, 1, img_height, img_width),
-                            device=device, dtype=torch.float32)
-        
-        for i, filename in enumerate(batch_filenames):
-            img_name = os.path.basename(filename).split('.')[0]
-            # Load mask from the mask directory
-            try :
-                mask_path = os.path.join(config.mask_dir, f"{img_name}.png")
-                mask_image = Image.open(mask_path).convert('L')  # Convert to grayscale
-                mask_np_array = np.array(mask_image)
-                mask_np_array = np.array(plt.imread(mask_path))
-                
-            except:
-                print(f"Mask not found for image: {img_name}")
-                mask_np_array = np.zeros((img_height, img_width))
-            
-            # Ensure the mask is a binary mask of 0s and 1s
-            mask_np_array = (mask_np_array > 0).astype(np.float32)
-            
-            # Insert the mask into the batch tensor
-            mask[i, 0] = torch.tensor(mask_np_array, device=device, dtype=torch.float32)
-            
-        #show_image_and_mask(batch_real, mask)
-        
-        # print("BREAKING")
-        # break
+        # create mask
+        bbox = misc.random_bbox(config)
+        regular_mask = misc.bbox2mask(config, bbox).to(device)
+        irregular_mask = misc.brush_stroke_mask(config).to(device)
+        mask = torch.logical_or(irregular_mask, regular_mask).to(torch.float32)
 
         # prepare input for generator
-        batch_incomplete = batch_real * (1. - mask)
+        batch_incomplete = batch_real*(1.-mask)
         ones_x = torch.ones_like(batch_incomplete)[:, 0:1].to(device)
-        x = torch.cat([batch_incomplete, ones_x, ones_x * mask], axis=1)
+        x = torch.cat([batch_incomplete, ones_x, ones_x*mask], axis=1)
 
         # generate inpainted images
         x1, x2 = generator(x, mask)
         batch_predicted = x2
 
         # apply mask and complete image
-        batch_complete = batch_predicted * mask + batch_incomplete * (1. - mask)
+        batch_complete = batch_predicted*mask + batch_incomplete*(1.-mask)
 
         # D training steps:
-        batch_real_mask = torch.cat((batch_real, mask), dim=1)
-        batch_filled_mask = torch.cat((batch_complete.detach(), mask), dim=1)
+        batch_real_mask = torch.cat(
+            (batch_real, torch.tile(mask, [config.batch_size, 1, 1, 1])), dim=1)
+        batch_filled_mask = torch.cat((batch_complete.detach(), torch.tile(
+            mask, [config.batch_size, 1, 1, 1])), dim=1)
 
         batch_real_filled = torch.cat((batch_real_mask, batch_filled_mask))
 
@@ -153,7 +104,8 @@ def training_loop(generator,        # generator network
         losses['ae_loss'] = losses['ae_loss1'] + losses['ae_loss2']
 
         batch_gen = batch_predicted
-        batch_gen = torch.cat((batch_gen, mask), dim=1)
+        batch_gen = torch.cat((batch_gen, torch.tile(
+            mask, [config.batch_size, 1, 1, 1])), dim=1)
 
         d_gen = discriminator(batch_gen)
 
@@ -167,6 +119,7 @@ def training_loop(generator,        # generator network
         g_optimizer.zero_grad()
         losses['g_loss'].backward()
         g_optimizer.step()
+
 
         # LOGGING
         for k in losses_log.keys():
@@ -231,7 +184,6 @@ def training_loop(generator,        # generator network
                         generator, discriminator,
                         g_optimizer, d_optimizer,
                         n_iter, config)
-
 
 
 def main():

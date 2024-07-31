@@ -54,4 +54,4 @@ gan_loss_alpha: 1.
 ae_loss: True
 l1_loss_alpha: 1.
 
-mask_dir: 'masks' # folder with masks
+#mask_dir: 'masks' # folder with masks
